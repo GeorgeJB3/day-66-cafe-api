@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 import random
+from sqlalchemy import exc
 
 '''
 Install the required packages first: 
@@ -49,6 +50,7 @@ def home():
     return render_template("index.html")
 
 
+# HTTP GET - Read Record
 @app.route("/random")
 def get_random_cafe():
     all_cafes = db.session.execute(db.select(Cafe)).scalars().all()
@@ -66,9 +68,41 @@ def get_all_cafes():
         all_cafes_dict.append(cafe.to_dict())
     return jsonify(cafes=all_cafes_dict)
 
-# HTTP GET - Read Record
+
+@app.route("/search")
+def search_cafe():
+    query_loc = request.args.get("loc")
+    loc_cafes = db.session.execute(db.select(Cafe).where(Cafe.location == query_loc)).scalars().all()
+    if loc_cafes:
+        return jsonify(cafes=[cafe.to_dict() for cafe in loc_cafes])
+    else:
+        return jsonify(error={"Not Found": "Sorry, we don't have a cafe at that location."}), 404
+
 
 # HTTP POST - Create Record
+
+@app.route("/add", methods=["POST"])
+def post_new_cafe():
+    try:
+        new_cafe_data = Cafe(
+             name=request.form.get("name"),
+             map_url=request.form.get("map_url"),
+             img_url=request.form.get("img_url"),
+             location=request.form.get("location"),
+             seats=request.form.get("seats"),
+             has_toilet=bool(request.form.get("has_toilet")),
+             has_wifi=bool(request.form.get("has_wifi")),
+             has_sockets=bool(request.form.get("has_sockets")),
+             can_take_calls=bool(request.form.get("can_take_calls")),
+             coffee_price=request.form.get("coffee_price"),
+        )
+        db.session.add(new_cafe_data)
+        db.session.commit()
+        return jsonify(response={"success": "Successfully added the new cafe."})
+    except exc.IntegrityError:
+        db.session.rollback()
+        return jsonify(response={"Oh no!": "This cafe already exists in the database."})
+
 
 # HTTP PUT/PATCH - Update Record
 
