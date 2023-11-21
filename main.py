@@ -27,6 +27,9 @@ class Cafe(db.Model):
     coffee_price = db.Column(db.String(250), nullable=True)
 
     def to_dict(self):
+        """
+        Creates a dictionary using the tables column name as the key and the value as the value
+        """
         return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
 # with app.create_context():
