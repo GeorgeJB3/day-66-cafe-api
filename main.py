@@ -2,19 +2,7 @@ from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 import random
 from sqlalchemy import exc
-
-'''
-Install the required packages first: 
-Open the Terminal in PyCharm (bottom left). 
-
-On Windows type:
-python -m pip install -r requirements.txt
-
-On MacOS type:
-pip3 install -r requirements.txt
-
-This will install the packages from requirements.txt for this project.
-'''
+import os
 
 app = Flask(__name__)
 
@@ -47,12 +35,18 @@ class Cafe(db.Model):
 
 @app.route("/")
 def home():
+    """
+    Renders the homepage
+    """
     return render_template("index.html")
 
 
 # HTTP GET - Read Record
 @app.route("/random")
 def get_random_cafe():
+    """
+    Gets a random cafe from the Cafe table in cafes database
+    """
     all_cafes = db.session.execute(db.select(Cafe)).scalars().all()
     random_cafe = random.choice(all_cafes)
     return jsonify(cafe=random_cafe.to_dict())
@@ -60,6 +54,9 @@ def get_random_cafe():
 
 @app.route("/all")
 def get_all_cafes():
+    """
+    Gets all the cafes in the Cafe table and prders them by cafe name
+    """
     # list of all the cafes
     all_cafes = db.session.execute(db.select(Cafe).order_by(Cafe.name)).scalars().all()
     # list of all the cafes as dicts
@@ -71,6 +68,9 @@ def get_all_cafes():
 
 @app.route("/search")
 def search_cafe():
+    """
+    Allows you to search for a cafe by the cafe location, provide the location to retrieve the cafe data
+    """
     query_loc = request.args.get("loc")
     loc_cafes = db.session.execute(db.select(Cafe).where(Cafe.location == query_loc)).scalars().all()
     if loc_cafes:
@@ -83,30 +83,42 @@ def search_cafe():
 
 @app.route("/add", methods=["POST"])
 def post_new_cafe():
-    try:
-        new_cafe_data = Cafe(
-             name=request.form.get("name"),
-             map_url=request.form.get("map_url"),
-             img_url=request.form.get("img_url"),
-             location=request.form.get("location"),
-             seats=request.form.get("seats"),
-             has_toilet=bool(request.form.get("has_toilet")),
-             has_wifi=bool(request.form.get("has_wifi")),
-             has_sockets=bool(request.form.get("has_sockets")),
-             can_take_calls=bool(request.form.get("can_take_calls")),
-             coffee_price=request.form.get("coffee_price"),
-        )
-        db.session.add(new_cafe_data)
-        db.session.commit()
-        return jsonify(response={"success": "Successfully added the new cafe."})
-    except exc.IntegrityError:
-        db.session.rollback()
-        return jsonify(response={"Oh no!": "This cafe already exists in the database."})
+    """
+    Allows you to add a new cafe as long as you have the correct api key, as this contains non sensitive data
+    I have kept the api key on display.
+    """
+    input_api_key = request.args.get("api-key")
+    api_key = "123api"
+    if api_key == input_api_key:
+        try:
+            new_cafe_data = Cafe(
+                 name=request.form.get("name"),
+                 map_url=request.form.get("map_url"),
+                 img_url=request.form.get("img_url"),
+                 location=request.form.get("location"),
+                 seats=request.form.get("seats"),
+                 has_toilet=bool(request.form.get("has_toilet")),
+                 has_wifi=bool(request.form.get("has_wifi")),
+                 has_sockets=bool(request.form.get("has_sockets")),
+                 can_take_calls=bool(request.form.get("can_take_calls")),
+                 coffee_price=request.form.get("coffee_price"),
+            )
+            db.session.add(new_cafe_data)
+            db.session.commit()
+            return jsonify(response={"success": "Successfully added the new cafe."})
+        except exc.IntegrityError:
+            db.session.rollback()
+            return jsonify(response={"Oh no!": "This cafe already exists in the database."})
+    else:
+        return jsonify(error={"Error": "Sorry, that's not allowed. Make sure you have the correct api_key."}), 403
 
 
 # HTTP PUT/PATCH - Update Record
 @app.route("/update-price/<int:cafe_id>", methods=["PATCH"])
 def patch_cafe(cafe_id):
+    """
+    Allows you to update the coffee price for a cafe matching the id given
+    """
     cafe_to_update = db.get_or_404(Cafe, cafe_id)
     new_price = request.args.get("new_price")
     if cafe_to_update:
@@ -118,6 +130,9 @@ def patch_cafe(cafe_id):
 # HTTP DELETE - Delete Record
 @app.route("/report-closed/<cafe_id>", methods=["DELETE"])
 def delete_cafe(cafe_id):
+    """
+    Allows you to delete a cafe by id, you will need the api_key for authorisation.
+    """
     api_key = "123api"
     cafe_to_delete = db.get_or_404(Cafe, cafe_id)
     input_api_key = request.args.get("api-key")
@@ -132,6 +147,9 @@ def delete_cafe(cafe_id):
 # Error handling
 @app.errorhandler(404)
 def cafe_not_found(e):
+    """
+    Returns an error if a cafe is requested that doesn't match the cafe id of a cafe in the database
+    """
     return jsonify(error={"Not Found": "Sorry a cafe with that id was not found in the database."}), 404
 
 
